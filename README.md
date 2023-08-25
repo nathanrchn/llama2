@@ -1,12 +1,12 @@
 # llama2
-A python api to use the llama2-chat models hosted by the perplexity.ai team.
+A python api to use the llama2-chat and codellama models.
 
 # Usage
 ```python
 from sys import stdout
-from llama import LLaMa
+from llama_perplexity import LLaMaPerplexity
 
-llama = LLaMa()
+llama = LLaMaPerplexity()
 
 while True:
     p: str = str(input("> "))

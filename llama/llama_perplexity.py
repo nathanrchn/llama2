@@ -6,7 +6,9 @@ from random import getrandbits
 from websocket import WebSocketApp
 from requests import Session, Response
 
-class LLaMa:
+from llama import LLaMa
+
+class LLaMaPerplexity(LLaMa):
     def __init__(self) -> None:
         self.history: list = []
         self.finished: bool = True
@@ -69,13 +71,21 @@ class LLaMa:
 
         Thread(target=self.websocket.run_forever).start()
 
-    def chat(self, text: str, model: str = "7b") -> dict:
-        assert model in ["7b", "13b", "70b"], "Invalid model"
-        self.history.append({"role": "user", "content": text, "priority": 0})
+    def chat(self, prompt: str, model: str = "7b") -> dict:
+        assert model in ["7b", "13b", "70b", "codellama-34b-instruct"], "Invalid model"
+        self.history.append({"role": "user", "content": prompt, "priority": 0})
 
         self.finished = False
-        self.websocket.send("42[\"perplexity_playground\",{\"model\":\"llama-2-" + model + "-chat\",\"messages\":" + dumps(self.history) + "}]")
+        if model == "codellama-34b-instruct":
+            model_name = model
+        else:
+            model_name = "llama-2-" + model + "-chat"
+
+        self.websocket.send("42[\"perplexity_playground\",{\"model\":\"" + model_name + "\",\"messages\":" + dumps(self.history) + "}]")
 
         while not self.finished:
             if len(self.queue) > 0:
                 yield self.queue.popleft()
+
+    def close(self) -> None:
+        self.websocket.close()
