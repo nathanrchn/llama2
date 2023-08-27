@@ -3,14 +3,15 @@ from json import dumps, loads
 from random import getrandbits
 from websocket import create_connection
 
-from llama import LLaMa
+from .llama import LLaMa
 
 class LLaMaHF(LLaMa):
     def __init__(self) -> None:
         self.history: list = []
         self.urls: dict = {
             "7b": "huggingface-projects-llama-2-7b-chat--glp8g.hf.space",
-            "13b": "huggingface-projects-llama-2-13b-chat--sg2t4.hf.space"
+            "13b": "huggingface-projects-llama-2-13b-chat--sg2t4.hf.space",
+            "codellama-13b": "codellama-codellama-playground.hf.space"
         }
         self.session_hash: str = self.get_session_hash()
         self.default_system_prompt: str = "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information."
@@ -72,6 +73,46 @@ class LLaMaHF(LLaMa):
                 break
             elif msg["msg"] == "process_generating":
                 output = msg["output"]["data"][0][-1][1]
+                ooutput_length = output_length
+                output_length = len(output)
+                yield output[ooutput_length:]
+
+        ws.close()
+
+    def code(self, prompt: str, max_new_tokens: int = 1024, temperature: float = 1, top_p: float = 0.95, repetition_penalty: int = 1.05) -> str:
+        ws = create_connection(f"wss://{self.urls['codellama-13b']}/queue/join")
+
+        send_hash_msg = ws.recv()
+        assert send_hash_msg == '{"msg":"send_hash"}', "Failed to connect"
+
+        ws.send(dumps({"fn_index": 1, "session_hash": self.session_hash}))
+
+        # wait until receive the send_data_msg
+        while True:
+            msg = ws.recv()
+            if msg == '{"msg":"send_data"}':
+                break
+
+        ws.send(dumps({
+            "fn_index": 1,
+            "data": [
+                prompt,
+                temperature,
+                max_new_tokens,
+                top_p,
+                repetition_penalty,
+            ],
+            "event_data": None,
+            "session_hash": self.session_hash
+        }))
+
+        output_length: int = 0
+        while True:
+            msg = loads(ws.recv())
+            if msg["msg"] == "process_completed":
+                break
+            elif msg["msg"] == "process_generating":
+                output = msg["output"]["data"][0]
                 ooutput_length = output_length
                 output_length = len(output)
                 yield output[ooutput_length:]

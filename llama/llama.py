@@ -5,5 +5,8 @@ class LLaMa:
     def chat(self) -> str:
         pass
 
+    def code(self) -> str:
+        pass
+
     def close(self) -> None:
         pass
